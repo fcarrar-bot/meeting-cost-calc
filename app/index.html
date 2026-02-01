@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Your Money Burn | Meeting Cost Calculator</title>
+  <meta name="description" content="See your meeting's real cost in real-time. Add attendees, watch the dollars tick up, and finally have data for 'this could've been an email.'">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="Watch Your Money Burn | Meeting Cost Calculator">
+  <meta property="og:description" content="See your meeting's real cost in real-time. Add attendees, watch the dollars tick up.">
+  <meta property="og:type" content="website">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            void: '#0A0A0F',
+            surface: '#16161D',
+            elevated: '#1E1E28',
+            ash: '#2A2A35',
+            blood: '#E63946',
+            ember: '#F4A261',
+            money: '#2ECC71',
+            silver: '#9CA3AF',
+            graphite: '#6B7280',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      background-color: #0A0A0F;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .cost-counter {
+      font-family: 'Space Grotesk', sans-serif;
+      text-shadow: 
+        0 0 20px rgba(230, 57, 70, 0.6),
+        0 0 40px rgba(230, 57, 70, 0.4),
+        0 0 60px rgba(230, 57, 70, 0.2);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    
+    .cost-counter.running {
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+    
+    .cost-counter.milestone {
+      animation: milestone-pulse 300ms ease-out;
+    }
+    
+    @keyframes glow-pulse {
+      0%, 100% { 
+        text-shadow: 
+          0 0 20px rgba(230, 57, 70, 0.6),
+          0 0 40px rgba(230, 57, 70, 0.4),
+          0 0 60px rgba(230, 57, 70, 0.2);
+      }
+      50% { 
+        text-shadow: 
+          0 0 30px rgba(230, 57, 70, 0.8),
+          0 0 60px rgba(230, 57, 70, 0.5),
+          0 0 90px rgba(230, 57, 70, 0.3);
+      }
+    }
+    
+    @keyframes milestone-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); filter: brightness(1.3); }
+      100% { transform: scale(1); }
+    }
+    
+    .timer-display {
+      font-family: 'Space Grotesk', sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .cents {
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.8;
+    }
+    
+    .card-hover {
+      transition: all 0.2s ease;
+    }
+    
+    .card-hover:hover {
+      border-color: #E63946;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #E63946 0%, #C62828 100%);
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 20px rgba(230, 57, 70, 0.4);
+    }
+    
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+    
+    .comparison-card {
+      border-left: 4px solid #F4A261;
+      background: linear-gradient(135deg, #16161D 0%, #1E1E28 100%);
+    }
+    
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    @keyframes slide-up {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .animate-slide-up {
+      animation: slide-up 0.3s ease-out;
+    }
+    
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .animate-fade-in {
+      animation: fade-in 0.5s ease-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-white">
+  
+  <!-- Header -->
+  <header class="sticky top-0 z-50 bg-void/80 backdrop-blur-md border-b border-ash">
+    <div class="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🔥</span>
+        <span class="font-semibold text-lg hidden sm:inline">Meeting Cost Calculator</span>
+      </div>
+      <button id="shareBtn" class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-ash hover:border-blood transition-colors">
+        <span>📤</span>
+        <span class="hidden sm:inline">Share</span>
+      </button>
+    </div>
+  </header>
+  
+  <main class="max-w-4xl mx-auto px-4 py-8">
+    
+    <!-- Hero Section -->
+    <section class="text-center mb-8">
+      <h1 class="text-4xl sm:text-5xl font-bold mb-3">Watch Your Money Burn</h1>
+      <p class="text-silver text-lg">Because that status update could've been a Slack message.</p>
+    </section>
+    
+    <!-- Cost Counter -->
+    <section class="text-center py-8 sm:py-16 mb-8">
+      <div class="mb-6">
+        <span id="costDisplay" class="cost-counter text-5xl sm:text-7xl md:text-8xl font-bold text-white">
+          $<span id="dollars">0</span><span class="cents text-4xl sm:text-5xl md:text-6xl">.00</span>
+        </span>
+        <div id="burningIndicator" class="text-blood text-sm mt-2 opacity-0 transition-opacity">
+          ▲ burning...
+        </div>
+      </div>
+      
+      <!-- Timer -->
+      <div class="timer-display text-3xl sm:text-4xl text-silver mb-8">
+        <span id="hours">00</span>:<span id="minutes">00</span>:<span id="seconds">00</span>
+      </div>
+      
+      <!-- Controls -->
+      <div class="flex justify-center gap-4 flex-wrap">
+        <button id="startBtn" class="btn-primary px-8 py-4 rounded-full text-lg font-semibold">
+          ▶ Start the Burn 🔥
+        </button>
+        <button id="pauseBtn" class="px-6 py-4 rounded-full border border-ash bg-surface hover:bg-elevated transition-colors hidden">
+          ⏸ Pause
+        </button>
+        <button id="resetBtn" class="px-6 py-4 rounded-full border border-ash bg-surface hover:bg-elevated transition-colors hidden">
+          ↺ Reset
+        </button>
+      </div>
+    </section>
+    
+    <!-- Attendees Section -->
+    <section class="mb-8">
+      <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <span>👥</span> Attendees
+        <span id="attendeeCount" class="text-silver text-base font-normal">(0)</span>
+        <span class="text-graphite text-sm font-normal ml-auto" id="hourlyRateDisplay">$0/hr combined</span>
+      </h2>
+      
+      <div id="attendeesList" class="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+        <!-- Attendee cards will be inserted here -->
+        
+        <!-- Add Attendee Card -->
+        <button id="addAttendeeBtn" class="flex-shrink-0 w-40 h-44 rounded-2xl border-2 border-dashed border-ash bg-surface/50 hover:border-blood hover:bg-surface transition-all flex flex-col items-center justify-center gap-2">
+          <span class="text-4xl">+</span>
+          <span class="text-silver text-sm">Add Attendee</span>
+        </button>
+      </div>
+      
+      <!-- Empty State -->
+      <p id="emptyState" class="text-graphite text-center py-4">
+        A meeting of one is just thinking. Add some people.
+      </p>
+    </section>
+    
+    <!-- Comparisons Section -->
+    <section id="comparisonsSection" class="mb-8 hidden">
+      <h2 class="text-xl font-semibold mb-4">💡 This meeting cost more than...</h2>
+      <div id="comparisonsList" class="space-y-3">
+        <!-- Comparison cards will be inserted here -->
+      </div>
+    </section>
+    
+    <!-- Summary Section (shown when stopped) -->
+    <section id="summarySection" class="mb-8 hidden">
+      <div class="comparison-card rounded-xl p-6 animate-slide-up">
+        <h2 class="text-xl font-semibold mb-4">📊 Meeting Summary</h2>
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div>
+            <div class="text-3xl font-bold text-blood" id="finalCost">$0.00</div>
+            <div class="text-silver text-sm">Total Cost</div>
+          </div>
+          <div>
+            <div class="text-3xl font-bold text-ember" id="finalDuration">0:00</div>
+            <div class="text-silver text-sm">Duration</div>
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-white" id="costPerMinute">$0.00</div>
+            <div class="text-silver text-sm">Per Minute</div>
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-white" id="costPerPerson">$0.00</div>
+            <div class="text-silver text-sm">Per Person</div>
+          </div>
+        </div>
+        <p class="text-graphite text-center mt-4 italic">
+          Moment of silence for those dollars. They served us well.
+        </p>
+      </div>
+    </section>
+    
+  </main>
+  
+  <!-- Footer -->
+  <footer class="border-t border-ash py-6 text-center text-graphite text-sm">
+    <p>Time is money. This app shows you exactly how much.</p>
+  </footer>
+  
+  <!-- Add Attendee Modal -->
+  <div id="attendeeModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+    <div class="bg-surface rounded-2xl p-6 w-full max-w-md animate-slide-up">
+      <h3 class="text-xl font-semibold mb-4">Add Attendee</h3>
+      
+      <!-- Role Presets -->
+      <div class="mb-4">
+        <label class="text-silver text-sm mb-2 block">Quick Select Role</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="preset-btn px-3 py-2 rounded-lg border border-ash bg-elevated hover:border-blood transition-colors text-left" data-rate="35">
+            <div class="font-medium">Fresh Grad</div>
+            <div class="text-silver text-sm">$35/hr</div>
+          </button>
+          <button class="preset-btn px-3 py-2 rounded-lg border border-ash bg-elevated hover:border-blood transition-colors text-left" data-rate="55">
+            <div class="font-medium">Keyboard Warrior</div>
+            <div class="text-silver text-sm">$55/hr</div>
+          </button>
+          <button class="preset-btn px-3 py-2 rounded-lg border border-ash bg-elevated hover:border-blood transition-colors text-left" data-rate="85">
+            <div class="font-medium">Gray Beard</div>
+            <div class="text-silver text-sm">$85/hr</div>
+          </button>
+          <button class="preset-btn px-3 py-2 rounded-lg border border-ash bg-elevated hover:border-blood transition-colors text-left" data-rate="110">
+            <div class="font-medium">Calendar Collector</div>
+            <div class="text-silver text-sm">$110/hr</div>
+          </button>
+          <button class="preset-btn px-3 py-2 rounded-lg border border-ash bg-elevated hover:border-blood transition-colors text-left" data-rate="150">
+            <div class="font-medium">Slide Whisperer</div>
+            <div class="text-silver text-sm">$150/hr</div>
+          </button>
+          <button class="preset-btn px-3 py-2 rounded-lg border border-ash bg-elevated hover:border-blood transition-colors text-left" data-rate="250">
+            <div class="font-medium">Corner Office</div>
+            <div class="text-silver text-sm">$250/hr</div>
+          </button>
+        </div>
+      </div>
+      
+      <div class="text-center text-graphite my-4">— or —</div>
+      
+      <!-- Custom Input -->
+      <div class="space-y-4">
+        <div>
+          <label class="text-silver text-sm mb-1 block">Custom Role</label>
+          <input type="text" id="customRole" placeholder="e.g., Data Scientist" class="w-full px-4 py-3 rounded-lg bg-elevated border border-ash focus:border-blood focus:outline-none transition-colors">
+        </div>
+        <div>
+          <label class="text-silver text-sm mb-1 block">Hourly Rate ($)</label>
+          <input type="number" id="customRate" placeholder="100" min="1" class="w-full px-4 py-3 rounded-lg bg-elevated border border-ash focus:border-blood focus:outline-none transition-colors">
+        </div>
+      </div>
+      
+      <div class="flex gap-3 mt-6">
+        <button id="cancelAttendee" class="flex-1 py-3 rounded-lg border border-ash hover:bg-elevated transition-colors">
+          Cancel
+        </button>
+        <button id="confirmAttendee" class="flex-1 py-3 rounded-lg btn-primary">
+          Add Attendee
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Share Modal -->
+  <div id="shareModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+    <div class="bg-surface rounded-2xl p-6 w-full max-w-md animate-slide-up">
+      <h3 class="text-xl font-semibold mb-4">Share Results</h3>
+      <div id="shareText" class="bg-elevated rounded-lg p-4 mb-4 text-silver">
+        <!-- Share text will be generated here -->
+      </div>
+      <div class="flex gap-3">
+        <button id="closeShare" class="flex-1 py-3 rounded-lg border border-ash hover:bg-elevated transition-colors">
+          Close
+        </button>
+        <button id="copyShare" class="flex-1 py-3 rounded-lg btn-primary">
+          📋 Copy Text
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // State
+    let attendees = [];
+    let isRunning = false;
+    let isPaused = false;
+    let startTime = null;
+    let pausedTime = 0;
+    let elapsedMs = 0;
+    let animationFrame = null;
+    let lastMilestone = 0;
+    
+    // Comparisons data
+    const comparisons = [
+      { threshold: 15, emoji: '📺', text: 'a month of Netflix' },
+      { threshold: 25, emoji: '🌯', text: 'a team lunch at Chipotle' },
+      { threshold: 50, emoji: '🧠', text: 'an actual therapy session' },
+      { threshold: 100, emoji: '🍽️', text: 'a nice dinner for two' },
+      { threshold: 250, emoji: '🎮', text: 'a PS5 controller' },
+      { threshold: 500, emoji: '✈️', text: 'a plane ticket to Vegas' },
+      { threshold: 1000, emoji: '💼', text: "a junior dev's weekly salary" },
+      { threshold: 2500, emoji: '💻', text: 'a brand new MacBook' },
+      { threshold: 5000, emoji: '☁️', text: 'a month of cloud hosting' },
+      { threshold: 10000, emoji: '🚗', text: 'a pretty decent used car' },
+    ];
+    
+    // DOM Elements
+    const costDisplay = document.getElementById('costDisplay');
+    const dollarsEl = document.getElementById('dollars');
+    const burningIndicator = document.getElementById('burningIndicator');
+    const hoursEl = document.getElementById('hours');
+    const minutesEl = document.getElementById('minutes');
+    const secondsEl = document.getElementById('seconds');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const attendeesList = document.getElementById('attendeesList');
+    const addAttendeeBtn = document.getElementById('addAttendeeBtn');
+    const attendeeCount = document.getElementById('attendeeCount');
+    const hourlyRateDisplay = document.getElementById('hourlyRateDisplay');
+    const emptyState = document.getElementById('emptyState');
+    const comparisonsSection = document.getElementById('comparisonsSection');
+    const comparisonsList = document.getElementById('comparisonsList');
+    const summarySection = document.getElementById('summarySection');
+    const attendeeModal = document.getElementById('attendeeModal');
+    const shareModal = document.getElementById('shareModal');
+    const shareBtn = document.getElementById('shareBtn');
+    
+    // Calculate combined hourly rate
+    function getCombinedRate() {
+      return attendees.reduce((sum, a) => sum + a.rate, 0);
+    }
+    
+    // Format currency
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    }
+    
+    // Format time
+    function formatTime(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return {
+        hours: hours.toString().padStart(2, '0'),
+        minutes: minutes.toString().padStart(2, '0'),
+        seconds: seconds.toString().padStart(2, '0')
+      };
+    }
+    
+    // Calculate cost
+    function calculateCost(ms) {
+      const hours = ms / 3600000;
+      return getCombinedRate() * hours;
+    }
+    
+    // Update display
+    function updateDisplay() {
+      const cost = calculateCost(elapsedMs);
+      const costStr = formatCurrency(cost);
+      const parts = costStr.split('.');
+      dollarsEl.textContent = parts[0];
+      dollarsEl.nextElementSibling.textContent = '.' + parts[1];
+      
+      const time = formatTime(elapsedMs);
+      hoursEl.textContent = time.hours;
+      minutesEl.textContent = time.minutes;
+      secondsEl.textContent = time.seconds;
+      
+      // Check for milestones
+      const milestones = [100, 500, 1000, 5000, 10000];
+      for (const m of milestones) {
+        if (cost >= m && lastMilestone < m) {
+          lastMilestone = m;
+          costDisplay.classList.add('milestone');
+          setTimeout(() => costDisplay.classList.remove('milestone'), 300);
+          updateComparisons(cost);
+        }
+      }
+    }
+    
+    // Update comparisons
+    function updateComparisons(cost) {
+      if (cost < 15) {
+        comparisonsSection.classList.add('hidden');
+        return;
+      }
+      
+      comparisonsSection.classList.remove('hidden');
+      const applicable = comparisons.filter(c => cost >= c.threshold);
+      
+      comparisonsList.innerHTML = applicable.slice(-3).reverse().map(c => `
+        <div class="comparison-card rounded-xl p-4 animate-fade-in">
+          <span class="text-2xl mr-2">${c.emoji}</span>
+          <span class="text-silver">${c.text}</span>
+        </div>
+      `).join('');
+    }
+    
+    // Animation loop
+    function tick() {
+      if (!isRunning || isPaused) return;
+      
+      elapsedMs = Date.now() - startTime + pausedTime;
+      updateDisplay();
+      updateComparisons(calculateCost(elapsedMs));
+      
+      animationFrame = requestAnimationFrame(tick);
+    }
+    
+    // Start meeting
+    function startMeeting() {
+      if (attendees.length === 0) {
+        alert('Add at least one attendee first!');
+        return;
+      }
+      
+      isRunning = true;
+      isPaused = false;
+      startTime = Date.now();
+      summarySection.classList.add('hidden');
+      
+      costDisplay.classList.add('running');
+      burningIndicator.style.opacity = '1';
+      
+      startBtn.classList.add('hidden');
+      pauseBtn.classList.remove('hidden');
+      resetBtn.classList.remove('hidden');
+      
+      tick();
+    }
+    
+    // Pause meeting
+    function pauseMeeting() {
+      if (!isRunning) return;
+      
+      if (isPaused) {
+        // Resume
+        isPaused = false;
+        startTime = Date.now();
+        pauseBtn.innerHTML = '⏸ Pause';
+        costDisplay.classList.add('running');
+        burningIndicator.style.opacity = '1';
+        tick();
+      } else {
+        // Pause
+        isPaused = true;
+        pausedTime = elapsedMs;
+        pauseBtn.innerHTML = '▶ Resume';
+        costDisplay.classList.remove('running');
+        burningIndicator.style.opacity = '0';
+        cancelAnimationFrame(animationFrame);
+      }
+    }
+    
+    // Reset meeting
+    function resetMeeting() {
+      isRunning = false;
+      isPaused = false;
+      startTime = null;
+      pausedTime = 0;
+      elapsedMs = 0;
+      lastMilestone = 0;
+      
+      cancelAnimationFrame(animationFrame);
+      
+      costDisplay.classList.remove('running');
+      burningIndicator.style.opacity = '0';
+      
+      startBtn.classList.remove('hidden');
+      startBtn.innerHTML = '▶ Start the Burn 🔥';
+      pauseBtn.classList.add('hidden');
+      pauseBtn.innerHTML = '⏸ Pause';
+      resetBtn.classList.add('hidden');
+      
+      // Show summary if there was a meeting
+      if (calculateCost(elapsedMs) > 0 || elapsedMs > 0) {
+        showSummary();
+      }
+      
+      dollarsEl.textContent = '0';
+      dollarsEl.nextElementSibling.textContent = '.00';
+      hoursEl.textContent = '00';
+      minutesEl.textContent = '00';
+      secondsEl.textContent = '00';
+      
+      comparisonsSection.classList.add('hidden');
+    }
+    
+    // Show summary
+    function showSummary() {
+      const cost = calculateCost(elapsedMs);
+      if (cost === 0) return;
+      
+      summarySection.classList.remove('hidden');
+      document.getElementById('finalCost').textContent = formatCurrency(cost);
+      
+      const time = formatTime(elapsedMs);
+      document.getElementById('finalDuration').textContent = 
+        `${parseInt(time.hours)}:${time.minutes}:${time.seconds}`;
+      
+      const minutes = elapsedMs / 60000;
+      document.getElementById('costPerMinute').textContent = 
+        formatCurrency(minutes > 0 ? cost / minutes : 0);
+      
+      document.getElementById('costPerPerson').textContent = 
+        formatCurrency(attendees.length > 0 ? cost / attendees.length : 0);
+    }
+    
+    // Render attendees
+    function renderAttendees() {
+      const cards = attendees.map((a, i) => `
+        <div class="card-hover flex-shrink-0 w-40 h-44 rounded-2xl border border-ash bg-surface p-4 relative animate-slide-up">
+          <button onclick="removeAttendee(${i})" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-elevated hover:bg-blood transition-colors flex items-center justify-center text-sm">×</button>
+          <div class="text-3xl mb-2">👤</div>
+          <div class="font-medium truncate">${a.role}</div>
+          <div class="text-blood font-semibold">$${a.rate}/hr</div>
+        </div>
+      `).join('');
+      
+      attendeesList.innerHTML = cards + `
+        <button id="addAttendeeBtn" onclick="openAttendeeModal()" class="flex-shrink-0 w-40 h-44 rounded-2xl border-2 border-dashed border-ash bg-surface/50 hover:border-blood hover:bg-surface transition-all flex flex-col items-center justify-center gap-2">
+          <span class="text-4xl">+</span>
+          <span class="text-silver text-sm">Add Attendee</span>
+        </button>
+      `;
+      
+      attendeeCount.textContent = `(${attendees.length})`;
+      hourlyRateDisplay.textContent = `$${getCombinedRate()}/hr combined`;
+      emptyState.classList.toggle('hidden', attendees.length > 0);
+    }
+    
+    // Add attendee
+    function addAttendee(role, rate) {
+      attendees.push({ role, rate: parseInt(rate) });
+      renderAttendees();
+      closeAttendeeModal();
+    }
+    
+    // Remove attendee
+    function removeAttendee(index) {
+      attendees.splice(index, 1);
+      renderAttendees();
+    }
+    
+    // Modal functions
+    function openAttendeeModal() {
+      attendeeModal.classList.remove('hidden');
+      attendeeModal.classList.add('flex');
+      document.getElementById('customRole').value = '';
+      document.getElementById('customRate').value = '';
+    }
+    
+    function closeAttendeeModal() {
+      attendeeModal.classList.add('hidden');
+      attendeeModal.classList.remove('flex');
+    }
+    
+    // Share functions
+    function openShareModal() {
+      const cost = calculateCost(elapsedMs);
+      const time = formatTime(elapsedMs);
+      const duration = `${parseInt(time.hours) > 0 ? parseInt(time.hours) + 'h ' : ''}${parseInt(time.minutes)}m`;
+      
+      const applicable = comparisons.filter(c => cost >= c.threshold);
+      const comparison = applicable.length > 0 ? applicable[applicable.length - 1].text : 'a few coffees';
+      
+      const shareText = `Our ${duration} meeting just cost ${formatCurrency(cost)}. That's more than ${comparison}. 🔥
+
+Calculate your meeting costs → ${window.location.href}
+
+#MeetingCostCalculator #ThisCouldveBeenAnEmail`;
+      
+      document.getElementById('shareText').textContent = shareText;
+      shareModal.classList.remove('hidden');
+      shareModal.classList.add('flex');
+    }
+    
+    function closeShareModal() {
+      shareModal.classList.add('hidden');
+      shareModal.classList.remove('flex');
+    }
+    
+    function copyShareText() {
+      const text = document.getElementById('shareText').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyShare');
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.innerHTML = '📋 Copy Text', 2000);
+      });
+    }
+    
+    // Event listeners
+    startBtn.addEventListener('click', startMeeting);
+    pauseBtn.addEventListener('click', pauseMeeting);
+    resetBtn.addEventListener('click', resetMeeting);
+    shareBtn.addEventListener('click', openShareModal);
+    
+    document.getElementById('cancelAttendee').addEventListener('click', closeAttendeeModal);
+    document.getElementById('closeShare').addEventListener('click', closeShareModal);
+    document.getElementById('copyShare').addEventListener('click', copyShareText);
+    
+    document.getElementById('confirmAttendee').addEventListener('click', () => {
+      const role = document.getElementById('customRole').value.trim() || 'Team Member';
+      const rate = document.getElementById('customRate').value || 50;
+      addAttendee(role, rate);
+    });
+    
+    // Preset buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const role = btn.querySelector('.font-medium').textContent;
+        const rate = btn.dataset.rate;
+        addAttendee(role, rate);
+      });
+    });
+    
+    // Close modals on backdrop click
+    attendeeModal.addEventListener('click', (e) => {
+      if (e.target === attendeeModal) closeAttendeeModal();
+    });
+    shareModal.addEventListener('click', (e) => {
+      if (e.target === shareModal) closeShareModal();
+    });
+    
+    // Initial render
+    renderAttendees();
+  </script>
+</body>
+</html>
