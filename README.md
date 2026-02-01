@@ -10,7 +10,7 @@
 
 A simple, dramatic web app that calculates the real-time cost of a meeting based on attendees' hourly rates. Watch the dollars tick up and finally have data for "this could've been an email."
 
-**[👉 Try it live](https://aliasgarxo.github.io/meeting-cost-calc/app/)**
+**[👉 Try it live](https://fcarrar-bot.github.io/meeting-cost-calc/)**
 
 ## ✨ Features
 
